@@ -32,22 +32,11 @@ SEURAT_V3_FLAVORS = {"seurat_v3", "seurat_v3_paper"}
 CSC_DASK_PARAMS = [p for p in ARRAY_TYPES if "1d_chunked" in p.id and "csc" in p.id]
 
 
-def _xfail_reason(flavor: str, *, batched: bool) -> str | None:
-    if flavor in SEURAT_V3_FLAVORS:
-        kind = "batched" if batched else "single-batch"
-        return f"{flavor} {kind} CSC column-chunked dask not implemented"
-    return None
-
-
 def _cases() -> list[pytest.ParameterSet]:
     cases = []
     for flavor in FLAVORS:
         for batched in (False, True):
-            marks: list = []
-            if flavor in SEURAT_V3_FLAVORS:
-                marks.append(needs.skmisc)
-            if (reason := _xfail_reason(flavor, batched=batched)) is not None:
-                marks.append(pytest.mark.xfail(reason=reason, strict=True))
+            marks = [needs.skmisc] if flavor in SEURAT_V3_FLAVORS else []
             cases.append(
                 pytest.param(
                     flavor,
@@ -62,7 +51,9 @@ def _cases() -> list[pytest.ParameterSet]:
 def _make_processed_adata(flavor: str, *, batched: bool) -> AnnData:
     """Build an AnnData with a dense, preprocessed ``X`` for the given flavor."""
     if flavor in SEURAT_V3_FLAVORS:
-        adata = pbmc3k()[:1000, :500].copy()
+        # matches the subset used by the existing seurat_v3 dask tests; smaller
+        # slices make loess ill-conditioned on this data.
+        adata = pbmc3k()[:1500, :1000].copy()
         adata.X = np.abs(np.asarray(adata.X.todense())).astype(np.float32)
     else:
         rng = np.random.default_rng(0)

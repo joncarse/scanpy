@@ -10,7 +10,7 @@ from anndata import AnnData
 from fast_array_utils import stats
 
 from ... import logging as logg
-from ..._compat import CSBase, CSRBase, DaskArray, warn
+from ..._compat import CSBase, CSCBase, CSRBase, DaskArray, warn
 from ..._utils import (
     check_nonnegative_integers,
     raise_if_dask_feature_axis_chunked,
@@ -22,6 +22,24 @@ if TYPE_CHECKING:
     from typing import Literal
 
     from numpy.typing import NDArray
+
+
+def _raise_if_unsupported_dask_chunking(data) -> None:
+    """Reject dask chunkings that seurat_v3 cannot handle.
+
+    Row-chunked (or unchunked-feature) dask arrays are supported, as is
+    column-chunked ``csc``-in-dask (the observation axis whole, feature axis
+    chunked). Everything else that chunks the feature axis - dense or ``csr``
+    feature-chunked, or ``csc`` chunked on both axes - is rejected with the
+    standard message.
+    """
+    if not isinstance(data, DaskArray):
+        return
+    if data.chunksize[1] == data.shape[1]:
+        return
+    if isinstance(data._meta, CSCBase) and data.chunksize[0] == data.shape[0]:
+        return
+    raise_if_dask_feature_axis_chunked(data)
 
 
 @singledispatch
@@ -173,7 +191,7 @@ def _highly_variable_genes_seurat_v3(  # noqa: PLR0912, PLR0915
         raise
     df = pd.DataFrame(index=adata.var_names)
     data = _get_obs_rep(adata, layer=layer)
-    raise_if_dask_feature_axis_chunked(data)
+    _raise_if_unsupported_dask_chunking(data)
 
     if check_values and not check_nonnegative_integers(data):
         msg = f"`{flavor=!r}` expects raw count data, but non-integers were found."
