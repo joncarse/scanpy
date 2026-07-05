@@ -769,3 +769,160 @@ def test_dask_consistency(adata: AnnData, flavor, batch_key, to_dask):
     assert_index_equal(adata.var_names, output_dask.index, check_names=False)
 
     assert_frame_equal(output_mem, output_dask, atol=1e-4)
+
+
+@pytest.mark.parametrize("flavor", ["seurat", "cell_ranger"])
+@pytest.mark.parametrize(
+    "to_dask",
+    [p for p in ARRAY_TYPES if "1d_chunked" in p.id and "csc" in p.id],
+)
+def test_dask_csc_consistency(adata: AnnData, flavor, to_dask):
+    """`seurat`/`cell_ranger` HVG on column-chunked CSC dask matches in-memory."""
+    adata.X = np.abs(adata.X).astype(int)
+    sc.pp.normalize_total(adata, target_sum=1e4)
+    sc.pp.log1p(adata)
+    adata_dask = adata.copy()
+    adata_dask.X = to_dask(adata_dask.X)
+
+    with (
+        pytest.warns(UserWarning, match="n_top_genes.*normalized dispersions")
+        if flavor == "cell_ranger"
+        else nullcontext()
+    ):
+        output_mem, output_dask = (
+            sc.pp.highly_variable_genes(
+                ad, flavor=flavor, n_top_genes=15, inplace=False
+            )
+            for ad in [adata, adata_dask]
+        )
+
+    assert isinstance(output_mem, pd.DataFrame)
+    assert isinstance(output_dask, pd.DataFrame)
+
+    assert_index_equal(adata.var_names, output_mem.index, check_names=False)
+    assert_index_equal(adata.var_names, output_dask.index, check_names=False)
+
+    assert_frame_equal(output_mem, output_dask, atol=1e-4)
+
+
+@pytest.mark.parametrize("flavor", ["seurat", "cell_ranger"])
+@pytest.mark.parametrize(
+    "to_dask",
+    [p for p in ARRAY_TYPES if "1d_chunked" in p.id and "csc" in p.id],
+)
+def test_dask_csc_filter_unexpressed(flavor, to_dask):
+    """`filter_unexpressed_genes=True` selects gene columns from column-chunked CSC dask.
+
+    Compared against the equivalent in-memory CSC input (rather than dense), since
+    dispersion tie-breaking at the ``n_top_genes`` cutoff is format-dependent.
+    """
+    rng = np.random.default_rng(0)
+    adata = sc.datasets.blobs(n_observations=60, n_variables=40, rng=rng)
+    x = np.abs(adata.X).astype(int)
+    # introduce all-zero genes that filtering must drop then re-insert
+    x[:, [1, 4, 7, 22, 31]] = 0
+    adata.X = x
+    sc.pp.normalize_total(adata, target_sum=1e4)
+    sc.pp.log1p(adata)
+
+    adata_mem = adata.copy()
+    adata_mem.X = sps.csc_matrix(adata_mem.X)
+    adata_dask = adata.copy()
+    adata_dask.X = to_dask(adata_dask.X)
+
+    output_mem, output_dask = (
+        sc.pp.highly_variable_genes(
+            ad,
+            flavor=flavor,
+            n_top_genes=10,
+            inplace=False,
+            filter_unexpressed_genes=True,
+        )
+        for ad in [adata_mem, adata_dask]
+    )
+
+    assert isinstance(output_dask, pd.DataFrame)
+    assert_index_equal(adata.var_names, output_dask.index, check_names=False)
+    assert_frame_equal(output_mem, output_dask, atol=1e-4)
+
+
+@pytest.mark.parametrize("flavor", ["seurat", "cell_ranger"])
+def test_csc_matches_csr_in_memory(adata: AnnData, flavor):
+    """In-memory CSC input yields the same HVG result as CSR (classic path)."""
+    adata.X = np.abs(adata.X).astype(int)
+    sc.pp.normalize_total(adata, target_sum=1e4)
+    sc.pp.log1p(adata)
+
+    adata_csr = adata.copy()
+    adata_csr.X = sps.csr_matrix(adata_csr.X)
+    adata_csc = adata.copy()
+    adata_csc.X = sps.csc_matrix(adata_csc.X)
+
+    with (
+        pytest.warns(UserWarning, match="n_top_genes.*normalized dispersions")
+        if flavor == "cell_ranger"
+        else nullcontext()
+    ):
+        output_csr, output_csc = (
+            sc.pp.highly_variable_genes(
+                ad, flavor=flavor, n_top_genes=15, inplace=False
+            )
+            for ad in [adata_csr, adata_csc]
+        )
+
+    assert_frame_equal(output_csr, output_csc, atol=1e-4)
+
+
+@needs.zarr
+@needs.dask
+@pytest.mark.parametrize("flavor", ["seurat", "cell_ranger"])
+def test_hvg_zarr_backed_csc_dask(tmp_path: Path, flavor):
+    """HVG on a column-chunked CSC dask array read lazily from an on-disk zarr store.
+
+    Mirrors the out-of-core scenario: X lives on disk as CSC and is read as a lazy
+    dask array chunked along the gene axis. The result must match an equivalent
+    in-memory column-chunked CSC dask array (isolating the zarr I/O path); numeric
+    agreement with the classic in-memory path is covered by ``test_dask_csc_consistency``.
+    """
+    import dask.array as da
+    import zarr
+    from anndata.experimental import read_elem_lazy
+    from anndata.io import write_elem
+
+    from scanpy._compat import CSCBase, DaskArray
+
+    rng = np.random.default_rng(0)
+    adata = sc.datasets.blobs(n_observations=200, n_variables=60, rng=rng)
+    adata.X = np.abs(adata.X).astype(int)
+    sc.pp.normalize_total(adata, target_sum=1e4)
+    sc.pp.log1p(adata)
+
+    x_csc = sps.csc_matrix(adata.X)
+    store = str(tmp_path / "hvg.zarr")
+    group = zarr.open_group(store, mode="w")
+    write_elem(group, "X", x_csc)
+
+    lazy_x = read_elem_lazy(zarr.open_group(store, mode="r")["X"])
+    assert isinstance(lazy_x, DaskArray)
+    assert isinstance(lazy_x._meta, CSCBase)
+    # chunk along the gene (column) axis to force the out-of-core layout
+    lazy_x = lazy_x.rechunk((-1, 20))
+    assert lazy_x.chunksize[1] != lazy_x.shape[1]
+
+    # equivalent in-memory column-chunked CSC dask array (same numeric path)
+    mem_x = da.from_array(x_csc, chunks=(-1, 20))
+    assert isinstance(mem_x._meta, CSCBase)
+
+    adata_mem = adata.copy()
+    adata_mem.X = mem_x
+    adata_zarr = adata.copy()
+    adata_zarr.X = lazy_x
+
+    # 60 genes with n_top_genes=15 keeps us clear of the low-dispersion warning
+    output_mem, output_zarr = (
+        sc.pp.highly_variable_genes(ad, flavor=flavor, n_top_genes=15, inplace=False)
+        for ad in [adata_mem, adata_zarr]
+    )
+
+    assert_index_equal(adata.var_names, output_zarr.index, check_names=False)
+    assert_frame_equal(output_mem, output_zarr, atol=1e-4)
