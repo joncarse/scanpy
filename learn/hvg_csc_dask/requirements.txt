@@ -1,0 +1,20 @@
+# HVG CSC/dask tutorial test suite dependencies.
+#
+# The suite imports scanpy from THIS fork checkout (scanpy/src is prepended to
+# sys.path in _support.py / build_fixtures.py), so it does not require scanpy to
+# be installed. For a standalone environment, from this directory run:
+#
+#   python -m venv .venv && . .venv/bin/activate
+#   pip install -e ../..            # this scanpy fork (brings anndata, zarr, dask, ...)
+#   pip install -r requirements.txt # the extras below
+#
+# distributed: a real dask scheduler so one scenario can execute the HVG graph
+#   over on-disk chunks on a LocalCluster.
+# dask[array], zarr: out-of-core arrays + on-disk store (pulled in by scanpy too).
+# scikit-misc: loess fit required by the seurat_v3 flavors.
+# pytest: test runner.
+distributed>=2026.7.0
+dask[array]
+zarr
+scikit-misc
+pytest
