@@ -61,15 +61,7 @@ def _as_dask_csc_col_chunked(x: np.ndarray):
         pytest.param(_as_csc, id="csc"),
         pytest.param(_as_dask_csr_row_chunked, id="dask_csr_row_chunked", marks=needs.dask),
         pytest.param(
-            _as_dask_csc_col_chunked,
-            id="dask_csc_col_chunked",
-            marks=[
-                needs.dask,
-                pytest.mark.xfail(
-                    reason="column-chunked clip_square_sum not implemented",
-                    strict=True,
-                ),
-            ],
+            _as_dask_csc_col_chunked, id="dask_csc_col_chunked", marks=needs.dask
         ),
     ],
 )

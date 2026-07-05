@@ -56,6 +56,12 @@ def clip_square_sum(
 
 @clip_square_sum.register(DaskArray)
 def _(data_batch: DaskArray, clip_val: np.ndarray) -> tuple[DaskArray, DaskArray]:
+    if data_batch.chunksize[1] != data_batch.shape[1]:
+        # feature-axis (column) chunked: each block holds every observation for a
+        # subset of genes, so the per-block clipped sums are already final and are
+        # concatenated along the gene axis rather than summed across blocks.
+        return _clip_square_sum_feature_chunked(data_batch, clip_val)
+
     n_blocks = data_batch.blocks.size
 
     def sum_and_sum_squares_clipped_from_block(block):
@@ -69,6 +75,26 @@ def _(data_batch: DaskArray, clip_val: np.ndarray) -> tuple[DaskArray, DaskArray
         dtype=np.float64,
     ).sum(axis=0)
     return squared_batch_counts_sum, batch_counts_sum
+
+
+def _clip_square_sum_feature_chunked(
+    data_batch: DaskArray, clip_val: np.ndarray
+) -> tuple[DaskArray, DaskArray]:
+    if data_batch.numblocks[0] != 1:
+        msg = "clip_square_sum requires the observation axis to be unchunked for feature-chunked dask arrays."
+        raise ValueError(msg)
+
+    def per_block(block, block_info: dict | None = None) -> np.ndarray:
+        col_subset = slice(*block_info[0]["array-location"][1])
+        squared_sum, total = clip_square_sum(block, clip_val[col_subset])
+        return np.vstack([np.asarray(squared_sum), np.asarray(total)])
+
+    combined = data_batch.map_blocks(
+        per_block,
+        chunks=((2,), data_batch.chunks[1]),
+        meta=np.array([], dtype=np.float64),
+    )
+    return combined[0], combined[1]
 
 
 @clip_square_sum.register(CSBase)
