@@ -11,13 +11,21 @@ pipeline and finally a real distributed executor.
 
 ## Before you start
 
-1. **Pick the interpreter.** The launch configs use
-   `${command:python.interpreterPath}`, i.e. the interpreter selected in VS Code
-   (bottom-right, or "Python: Select Interpreter"). Choose one that has this fork
-   plus `distributed` and `scikit-misc` importable — the shared `learn/.venv`
-   already does, or make a local one per `[requirements.txt](requirements.txt)`.
-   The suite prepends this fork's `src/` to `sys.path`, so `import scanpy` always
-   resolves to the code you are stepping through, regardless of interpreter.
+1. **Use the repo venv.** Opening this fork in its own Cursor/VS Code window should
+   pick up `[.venv/bin/python](../../.venv/bin/python)` (Python 3.14.6) via
+   `[.vscode/settings.json](../../.vscode/settings.json)`. Create it once from the
+   repo root if missing:
+
+   ```bash
+   python3.14 -m venv .venv
+   . .venv/bin/activate
+   pip install -e .
+   pip install -r learn/hvg_csc_dask/requirements.txt
+   ```
+
+   The launch configs use `${command:python.interpreterPath}` (that venv). The suite
+   also prepends this fork's `src/` to `sys.path`, so `import scanpy` always
+   resolves to the code you are stepping through.
 2. **Build the fixtures once** (Lesson 0). Everything else auto-builds them on
    first use, but running Lesson 0 explicitly is the best way to see what is on
    disk.

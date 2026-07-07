@@ -74,22 +74,22 @@ Each test module has a top docstring mapping the call stack to breakpoint target
 From this directory (`scanpy/learn/hvg_csc_dask/`):
 
 ```bash
-python -m pytest -q
+../../.venv/bin/python -m pytest -q
 ```
 
-Any interpreter with this fork importable works. Two common options:
-
-- Standalone venv:
+**Recommended:** use the repo-root venv at `scanpy/.venv/` (Python 3.14.6). VS Code /
+Cursor picks it up automatically via `.vscode/settings.json`. Create it once from the
+repo root:
 
 ```bash
-python -m venv .venv && . .venv/bin/activate
-pip install -e ../..            # this scanpy fork
-pip install -r requirements.txt # distributed, scikit-misc, pytest, ...
-python -m pytest -q
+python3.14 -m venv .venv
+. .venv/bin/activate
+pip install -e .
+pip install -r learn/hvg_csc_dask/requirements.txt
+cd learn/hvg_csc_dask && python -m pytest -q
 ```
 
-- An existing environment that already has scanpy's test deps (e.g. one used for the
-  fork), pointed at this folder: `path/to/python -m pytest -q`.
+Or a one-off venv in this folder (see `[requirements.txt](requirements.txt)`).
 
 The local `pytest.ini` keeps this suite off scanpy's own `addopts`
 (`--doctest-modules`/`--pyargs`/plugin). The `hvg_store` session fixture auto-builds

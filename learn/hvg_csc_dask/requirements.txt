@@ -1,13 +1,13 @@
 # HVG CSC/dask tutorial test suite dependencies.
 #
-# The suite imports scanpy from THIS fork checkout (scanpy/src is prepended to
-# sys.path in _support.py / build_fixtures.py), so it does not require scanpy to
-# be installed. For a standalone environment, from this directory run:
+# Recommended: repo-root venv at scanpy/.venv/ (see README.md and LESSONS.md).
+# From the scanpy repo root:
 #
-#   python -m venv .venv && . .venv/bin/activate
-#   pip install -e ../..            # this scanpy fork (brings anndata, zarr, dask, ...)
-#   pip install -r requirements.txt # the extras below
+#   python3.14 -m venv .venv && . .venv/bin/activate
+#   pip install -e .
+#   pip install -r learn/hvg_csc_dask/requirements.txt
 #
+# The suite also prepends scanpy/src to sys.path, so import scanpy hits this checkout.
 # distributed: a real dask scheduler so one scenario can execute the HVG graph
 #   over on-disk chunks on a LocalCluster.
 # dask[array], zarr: out-of-core arrays + on-disk store (pulled in by scanpy too).
