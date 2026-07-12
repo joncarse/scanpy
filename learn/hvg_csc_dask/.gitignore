@@ -1,7 +1,0 @@
-# Generated fixtures — regenerate with `python build_fixtures.py`.
-data/
-
-# pytest / python caches
-.pytest_cache/
-__pycache__/
-*.pyc
