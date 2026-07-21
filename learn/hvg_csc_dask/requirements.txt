@@ -1,0 +1,15 @@
+# HVG CSC/dask tutorial test suite dependencies.
+#
+# Recommended: scverse-root venv at ../../.venv/ (see README.md and LESSONS.md).
+# From the scverse workspace root:
+#
+#   python3.14 -m venv .venv && . .venv/bin/activate
+#   pip install -e ./scanpy -e ./anndata
+#   pip install -r learn/hvg_csc_dask/requirements.txt
+#
+# _support.py also prepends scanpy/src and anndata/src to sys.path for debugging.
+distributed>=2026.7.0
+dask[array]
+zarr
+scikit-misc
+pytest

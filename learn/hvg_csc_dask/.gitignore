@@ -1,0 +1,12 @@
+# Generated fixtures — regenerate with build_fixtures.py / build_geneblock_fixtures.py.
+data/
+
+# Explicit large Lesson 7 artifacts (also covered by data/ above).
+data/downloads/
+data/pbmc3k_geneblocks.zarr/
+data/pbmc68k_geneblocks.zarr/
+
+# pytest / python caches
+.pytest_cache/
+__pycache__/
+*.pyc

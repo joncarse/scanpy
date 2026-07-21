@@ -10,7 +10,7 @@
             "args": ["-M", "html", ".", "_build"],
             "cwd": "${workspaceFolder}/docs",
             "console": "internalConsole",
-            "justMyCode": false,
+            "justMyCode": false
         },
         {
             "name": "Python: Debug",
@@ -18,7 +18,7 @@
             "request": "launch",
             "program": "${file}",
             "console": "internalConsole",
-            "justMyCode": false,
+            "justMyCode": false
         },
         {
             "name": "Python: Debug Test",
@@ -29,15 +29,190 @@
             "console": "internalConsole",
             "justMyCode": false,
             "env": { "PYTEST_ADDOPTS": "--color=yes" },
-            "presentation": { "hidden": true },
+            "presentation": { "hidden": true }
         },
+        {
+            "name": "Lesson 0: Build & inspect fixtures",
+            "type": "debugpy",
+            "request": "launch",
+            "python": "${workspaceFolder}/../.venv/bin/python",
+            "program": "${workspaceFolder}/learn/hvg_csc_dask/build_fixtures.py",
+            "args": ["--force"],
+            "cwd": "${workspaceFolder}/learn/hvg_csc_dask",
+            "console": "internalConsole",
+            "justMyCode": false,
+            "env": {
+                "PYTHONPATH": "${workspaceFolder}/src${pathSeparator}${workspaceFolder}/../anndata/src"
+            },
+            "presentation": { "group": "HVG lessons", "order": 1 }
+        },
+        {
+            "name": "Lesson 1: Dispersion (seurat, single batch)",
+            "type": "debugpy",
+            "request": "launch",
+            "python": "${workspaceFolder}/../.venv/bin/python",
+            "module": "pytest",
+            "args": [
+                "-vv",
+                "-s",
+                "test_dispersion_ooc.py::test_dispersion_matches_in_memory[single-seurat]"
+            ],
+            "cwd": "${workspaceFolder}/learn/hvg_csc_dask",
+            "console": "internalConsole",
+            "justMyCode": false,
+            "env": {
+                "PYTEST_ADDOPTS": "--color=yes",
+                "PYTHONPATH": "${workspaceFolder}/src${pathSeparator}${workspaceFolder}/../anndata/src"
+            },
+            "presentation": { "group": "HVG lessons", "order": 2 }
+        },
+        {
+            "name": "Lesson 2: Dispersion (cell_ranger, batched)",
+            "type": "debugpy",
+            "request": "launch",
+            "python": "${workspaceFolder}/../.venv/bin/python",
+            "module": "pytest",
+            "args": [
+                "-vv",
+                "-s",
+                "test_dispersion_ooc.py::test_dispersion_matches_in_memory[batched-cell_ranger]"
+            ],
+            "cwd": "${workspaceFolder}/learn/hvg_csc_dask",
+            "console": "internalConsole",
+            "justMyCode": false,
+            "env": {
+                "PYTEST_ADDOPTS": "--color=yes",
+                "PYTHONPATH": "${workspaceFolder}/src${pathSeparator}${workspaceFolder}/../anndata/src"
+            },
+            "presentation": { "group": "HVG lessons", "order": 3 }
+        },
+        {
+            "name": "Lesson 3: seurat_v3 (single batch, new clip branch)",
+            "type": "debugpy",
+            "request": "launch",
+            "python": "${workspaceFolder}/../.venv/bin/python",
+            "module": "pytest",
+            "args": [
+                "-vv",
+                "-s",
+                "test_seurat_v3_ooc.py::test_seurat_v3_matches_in_memory[single-seurat_v3]"
+            ],
+            "cwd": "${workspaceFolder}/learn/hvg_csc_dask",
+            "console": "internalConsole",
+            "justMyCode": false,
+            "env": {
+                "PYTEST_ADDOPTS": "--color=yes",
+                "PYTHONPATH": "${workspaceFolder}/src${pathSeparator}${workspaceFolder}/../anndata/src"
+            },
+            "presentation": { "group": "HVG lessons", "order": 4 }
+        },
+        {
+            "name": "Lesson 4: seurat_v3 (batched, aggregate + row masking)",
+            "type": "debugpy",
+            "request": "launch",
+            "python": "${workspaceFolder}/../.venv/bin/python",
+            "module": "pytest",
+            "args": [
+                "-vv",
+                "-s",
+                "test_seurat_v3_ooc.py::test_seurat_v3_matches_in_memory[batched-seurat_v3]"
+            ],
+            "cwd": "${workspaceFolder}/learn/hvg_csc_dask",
+            "console": "internalConsole",
+            "justMyCode": false,
+            "env": {
+                "PYTEST_ADDOPTS": "--color=yes",
+                "PYTHONPATH": "${workspaceFolder}/src${pathSeparator}${workspaceFolder}/../anndata/src"
+            },
+            "presentation": { "group": "HVG lessons", "order": 5 }
+        },
+        {
+            "name": "Lesson 5: Full pipeline (normalize_total layout flip)",
+            "type": "debugpy",
+            "request": "launch",
+            "python": "${workspaceFolder}/../.venv/bin/python",
+            "module": "pytest",
+            "args": [
+                "-vv",
+                "-s",
+                "test_full_pipeline_ooc.py::test_full_pipeline_matches_in_memory"
+            ],
+            "cwd": "${workspaceFolder}/learn/hvg_csc_dask",
+            "console": "internalConsole",
+            "justMyCode": false,
+            "env": {
+                "PYTEST_ADDOPTS": "--color=yes",
+                "PYTHONPATH": "${workspaceFolder}/src${pathSeparator}${workspaceFolder}/../anndata/src"
+            },
+            "presentation": { "group": "HVG lessons", "order": 6 }
+        },
+        {
+            "name": "Lesson 6: Real dask executor (LocalCluster)",
+            "type": "debugpy",
+            "request": "launch",
+            "python": "${workspaceFolder}/../.venv/bin/python",
+            "module": "pytest",
+            "args": [
+                "-vv",
+                "-s",
+                "test_dask_executor.py::test_seurat_v3_under_local_cluster"
+            ],
+            "cwd": "${workspaceFolder}/learn/hvg_csc_dask",
+            "console": "internalConsole",
+            "justMyCode": false,
+            "env": {
+                "PYTEST_ADDOPTS": "--color=yes",
+                "PYTHONPATH": "${workspaceFolder}/src${pathSeparator}${workspaceFolder}/../anndata/src"
+            },
+            "presentation": { "group": "HVG lessons", "order": 7 }
+        },
+        {
+            "name": "Lesson 7A: LocalCluster pbmc3k gene-block CSC",
+            "type": "debugpy",
+            "request": "launch",
+            "python": "${workspaceFolder}/../.venv/bin/python",
+            "module": "pytest",
+            "args": [
+                "-vv",
+                "-s",
+                "test_lesson7_parallel_ooc.py::test_lesson7a_pbmc3k_localcluster"
+            ],
+            "cwd": "${workspaceFolder}/learn/hvg_csc_dask",
+            "console": "internalConsole",
+            "justMyCode": false,
+            "env": {
+                "PYTEST_ADDOPTS": "--color=yes",
+                "PYTHONPATH": "${workspaceFolder}/src${pathSeparator}${workspaceFolder}/../anndata/src"
+            },
+            "presentation": { "group": "HVG lessons", "order": 8 }
+        },
+        {
+            "name": "Lesson 7B: LocalCluster pbmc68k gene-block CSC",
+            "type": "debugpy",
+            "request": "launch",
+            "python": "${workspaceFolder}/../.venv/bin/python",
+            "module": "pytest",
+            "args": [
+                "-vv",
+                "-s",
+                "test_lesson7_parallel_ooc.py::test_lesson7b_pbmc68k_localcluster"
+            ],
+            "cwd": "${workspaceFolder}/learn/hvg_csc_dask",
+            "console": "internalConsole",
+            "justMyCode": false,
+            "env": {
+                "PYTEST_ADDOPTS": "--color=yes",
+                "PYTHONPATH": "${workspaceFolder}/src${pathSeparator}${workspaceFolder}/../anndata/src"
+            },
+            "presentation": { "group": "HVG lessons", "order": 9 }
+        }
     ],
     "inputs": [
         {
             "id": "docsInterpreter",
             "type": "command",
             "command": "hatch.envInterpreter",
-            "args": { "env": "docs" },
-        },
-    ],
+            "args": { "env": "docs" }
+        }
+    ]
 }
