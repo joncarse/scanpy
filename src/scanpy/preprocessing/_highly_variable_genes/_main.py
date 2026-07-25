@@ -14,6 +14,7 @@ from ._dispersion import (
     _highly_variable_genes_batched,
     _highly_variable_genes_single_batch,
 )
+from ._lesson7_narrate import narrate
 from ._seurat_v3 import _highly_variable_genes_seurat_v3
 
 if TYPE_CHECKING:
@@ -158,7 +159,18 @@ def highly_variable_genes(  # noqa: PLR0913
         from ... import settings
 
         flavor = settings.preset.highly_variable_genes.flavor
+        narrate("scanpy", "hvg: resolved Default flavor from settings", flavor=flavor)
 
+    narrate(
+        "scanpy",
+        "hvg: enter highly_variable_genes",
+        flavor=flavor,
+        layer=layer,
+        n_top_genes=n_top_genes,
+        inplace=inplace,
+        batch_key=batch_key,
+        adata_shape=adata.shape,
+    )
     start = logg.info("extracting highly variable genes")
 
     if not isinstance(adata, AnnData):
@@ -167,12 +179,15 @@ def highly_variable_genes(  # noqa: PLR0913
             "pass `inplace=False` if you want to return a `pd.DataFrame`."
         )
         raise ValueError(msg)
+    narrate("scanpy", "hvg: adata type check ok")
 
     if flavor in {"seurat_v3", "seurat_v3_paper"}:
+        narrate("scanpy", "hvg: dispatch to seurat_v3 implementation", flavor=flavor)
         if n_top_genes is None:
             sig = signature(_highly_variable_genes_seurat_v3)
             n_top_genes = cast("int", sig.parameters["n_top_genes"].default)
-        return _highly_variable_genes_seurat_v3(
+            narrate("scanpy", "hvg: filled default n_top_genes", n_top_genes=n_top_genes)
+        result = _highly_variable_genes_seurat_v3(
             adata,
             flavor=flavor,
             layer=layer,
@@ -183,6 +198,13 @@ def highly_variable_genes(  # noqa: PLR0913
             subset=subset,
             inplace=inplace,
         )
+        narrate(
+            "scanpy",
+            "hvg: seurat_v3 returned",
+            result_type=type(result).__name__,
+            result_shape=getattr(result, "shape", None),
+        )
+        return result
 
     cutoff = _Cutoffs.validate(
         n_top_genes=n_top_genes,

@@ -15,6 +15,7 @@ import pytest
 # Importing _support prepends scanpy/src and anndata/src to sys.path.
 import _support  # noqa: F401
 import build_fixtures
+from _support import narrate
 
 HERE = Path(__file__).resolve().parent
 
@@ -37,7 +38,18 @@ def dask_client():
     crash noted in scanpy's ``maybe_dask_process_context`` helper; each worker is
     its own process with a single thread.
     """
-    distributed = pytest.importorskip("distributed")
+    import os
+
+    import distributed  # hard requirement for LocalCluster lessons (6/7)
+
+    narrate(
+        "client",
+        "dask_client fixture: creating LocalCluster",
+        n_workers=2,
+        threads_per_worker=1,
+        processes=True,
+        pytest_pid=os.getpid(),
+    )
     cluster = distributed.LocalCluster(
         n_workers=2,
         threads_per_worker=1,
@@ -45,8 +57,24 @@ def dask_client():
         dashboard_address=None,
     )
     client = distributed.Client(cluster)
+    workers = client.scheduler_info().get("workers", {})
+    narrate(
+        "client",
+        "dask_client fixture: cluster ready",
+        client_pid=os.getpid(),
+        n_workers=len(workers),
+        worker_pids=[w.get("id") for w in workers.values()],
+        worker_addresses=list(workers),
+    )
+    # Prefer OS PIDs when available on worker info / cluster.workers.
+    try:
+        pids = [cluster.workers[k].pid for k in sorted(cluster.workers)]
+        narrate("client", "dask_client fixture: worker OS PIDs", worker_os_pids=pids)
+    except Exception:  # noqa: BLE001 — narration only
+        pass
     try:
         yield client
     finally:
+        narrate("client", "dask_client fixture: shutting down client/cluster")
         client.close()
         cluster.close()

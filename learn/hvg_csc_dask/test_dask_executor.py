@@ -18,13 +18,12 @@ in ``maybe_dask_process_context``.
 
 from __future__ import annotations
 
+import distributed  # hard requirement for LocalCluster executor lesson
 import pytest
+import skmisc  # noqa: F401  # hard requirement: seurat_v3 loess
 
 import scanpy as sc
 from _support import assert_hvg_close, load_lazy_csc, read_reference
-
-pytest.importorskip("skmisc")
-distributed = pytest.importorskip("distributed")
 
 GENE_CHUNK = 200
 

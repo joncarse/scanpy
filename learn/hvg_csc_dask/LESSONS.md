@@ -334,6 +334,13 @@ python build_geneblock_fixtures.py --dataset pbmc68k   # downloads under data/do
 
 7B download is CC BY 4.0 (10x). Skip with `HVG_LESSON7_SKIP_DOWNLOAD=1`.
 
+**Story narration (learning):** set `HVG_LESSON7_NARRATE=1` and run with pytest
+`-s` (already on in the Lesson 7 launch configs). Near line-by-line stdout logs
+walk the tutorial helpers, anndata `read_elem_lazy` / `read_sparse_as_dask`, and
+scanpy `seurat_v3` (including worker `per_block`). Prefixes:
+`[L7 client]`, `[L7 worker …]`, `[L7 scanpy]`, `[L7 anndata]`, `[L7 compare]`.
+Output is intentionally very verbose; leave the env unset for quiet CI-style runs.
+
 **Breakpoints (client process):**
 
 1. [`build_geneblock_fixtures.py`](build_geneblock_fixtures.py) `_write_gene_blocks` —
