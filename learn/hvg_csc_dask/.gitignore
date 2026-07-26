@@ -10,3 +10,6 @@ data/pbmc68k_geneblocks.zarr/
 .pytest_cache/
 __pycache__/
 *.pyc
+
+# narrate capture JSONL / lecture-injection helpers
+cache/

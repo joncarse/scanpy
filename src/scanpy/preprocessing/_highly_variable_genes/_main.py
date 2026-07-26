@@ -14,7 +14,6 @@ from ._dispersion import (
     _highly_variable_genes_batched,
     _highly_variable_genes_single_batch,
 )
-from ._lesson7_narrate import narrate
 from ._seurat_v3 import _highly_variable_genes_seurat_v3
 
 if TYPE_CHECKING:
@@ -159,18 +158,56 @@ def highly_variable_genes(  # noqa: PLR0913
         from ... import settings
 
         flavor = settings.preset.highly_variable_genes.flavor
-        narrate("scanpy", "hvg: resolved Default flavor from settings", flavor=flavor)
+        # L7-LECTURE (not hit on Lesson 7B primary gene-block path)
+        # Alternate branch unused by test_lesson7b; no live 7B values here.
+        # --- lecture ---
+        # The caller did not pass an explicit ``flavor=...`` string. Instead
+        # they left the default sentinel, which means "look up whatever the
+        # active scanpy preset says highly_variable_genes should use."
+        #
+        # Presets are a convenience for whole-pipeline defaults (for example
+        # a Seurat-like or Cell-Ranger-like workflow). After this resolution
+        # step, ``flavor`` is an ordinary string such as ``'seurat_v3'`` or
+        # ``'seurat'``, and the rest of the function branches on that concrete
+        # value.
 
-    narrate(
-        "scanpy",
-        "hvg: enter highly_variable_genes",
-        flavor=flavor,
-        layer=layer,
-        n_top_genes=n_top_genes,
-        inplace=inplace,
-        batch_key=batch_key,
-        adata_shape=adata.shape,
-    )
+    # L7-LECTURE (real Lesson 7B run)
+    # Step-by-step lecture note — inspected values from live execution.
+    # function=highly_variable_genes  where=scanpy  pid=2237068  hits_at_site=2
+    # topic: Entering scanpy's public ``highly_variable_genes`` entry point.
+    # --- lecture ---
+    # Entering scanpy's public ``highly_variable_genes`` entry point. This
+    # function is a dispatcher: depending on ``flavor`` it either runs the
+    # Seurat-v3 / Seurat-v3-paper VST implementation or one of the older
+    # dispersion-based methods (``seurat``, ``cell_ranger``, …).
+    #
+    # The facts appendix records the knobs that matter for routing and for
+    # the Seurat-v3 path in particular: which layer holds expression, how
+    # many top genes to keep, whether results are written into ``adata.var``,
+    # and whether batches are handled separately via ``batch_key``.
+    # --- facts at this step ---
+    #   flavor = 'seurat_v3'
+    #   layer = 'counts'
+    #   n_top_genes = 20387
+    #   inplace = False
+    #   batch_key = None
+    #   adata_shape = (68579, 20387)
+    # --- locals / object fields at the call site ---
+    #   adata = AnnData object with n_obs × n_vars = 68579 × 20387     obs: 'batch'     var: 'gene_ids', 'n_cells'     layers: 'counts'
+    #   layer = 'counts'
+    #   n_top_genes = 20387
+    #   min_disp = 0.5
+    #   max_disp = inf
+    #   min_mean = 0.0125
+    #   max_mean = 3
+    #   span = 0.3
+    #   n_bins = 20
+    #   flavor = 'seurat_v3'
+    #   subset = False
+    #   inplace = False
+    #   batch_key = None
+    #   filter_unexpressed_genes = None
+    #   check_values = True
     start = logg.info("extracting highly variable genes")
 
     if not isinstance(adata, AnnData):
@@ -179,14 +216,85 @@ def highly_variable_genes(  # noqa: PLR0913
             "pass `inplace=False` if you want to return a `pd.DataFrame`."
         )
         raise ValueError(msg)
-    narrate("scanpy", "hvg: adata type check ok")
+    # L7-LECTURE (real Lesson 7B run)
+    # Step-by-step lecture note — inspected values from live execution.
+    # function=highly_variable_genes  where=scanpy  pid=2237068  hits_at_site=2
+    # topic: The first argument really is an ``AnnData`` object, which is what this API requires.
+    # --- lecture ---
+    # The first argument really is an ``AnnData`` object, which is what this
+    # API requires. AnnData bundles the cells×genes matrix with ``.obs`` and
+    # ``.var`` annotations; HVG results are normally written into ``.var``.
+    #
+    # If someone passed a bare DataFrame or array, we would have raised above.
+    # Passing that type check means we can safely read layers, batch keys, and
+    # gene names in the flavor-specific implementation next.
+    # --- locals / object fields at the call site ---
+    #   adata = AnnData object with n_obs × n_vars = 68579 × 20387     obs: 'batch'     var: 'gene_ids', 'n_cells'     layers: 'counts'
+    #   layer = 'counts'
+    #   n_top_genes = 20387
+    #   min_disp = 0.5
+    #   max_disp = inf
+    #   min_mean = 0.0125
+    #   max_mean = 3
+    #   span = 0.3
+    #   n_bins = 20
+    #   flavor = 'seurat_v3'
+    #   subset = False
+    #   inplace = False
+    #   batch_key = None
+    #   filter_unexpressed_genes = None
+    #   check_values = True
+    #   start = datetime.datetime(2026, 7, 26, 12, 36, 59, 871764, tzinfo=datetime.timezone.utc)
 
     if flavor in {"seurat_v3", "seurat_v3_paper"}:
-        narrate("scanpy", "hvg: dispatch to seurat_v3 implementation", flavor=flavor)
+        # L7-LECTURE (real Lesson 7B run)
+        # Step-by-step lecture note — inspected values from live execution.
+        # function=highly_variable_genes  where=scanpy  pid=2237068  hits_at_site=2
+        # topic: Flavor is ``seurat_v3`` or ``seurat_v3_paper``, so we take the VST dispatch path rather than the dispersion-based code below.
+        # --- lecture ---
+        # Flavor is ``seurat_v3`` or ``seurat_v3_paper``, so we take the VST
+        # dispatch path rather than the dispersion-based code below. Both of
+        # these flavors expect raw counts, use LOESS to model the mean–variance
+        # trend, clip outliers, and rank genes by normalized variance.
+        #
+        # The two flavors share the same numeric engine
+        # (``_highly_variable_genes_seurat_v3``); they differ mainly in how
+        # multi-batch ranks are sorted when choosing the final top genes.
+        # From here we validate ``n_top_genes`` if needed, call that engine,
+        # and return whatever it returns (DataFrame or ``None`` when inplace).
+        # --- facts at this step ---
+        #   flavor = 'seurat_v3'
+        # --- locals / object fields at the call site ---
+        #   adata = AnnData object with n_obs × n_vars = 68579 × 20387     obs: 'batch'     var: 'gene_ids', 'n_cells'     layers: 'counts'
+        #   layer = 'counts'
+        #   n_top_genes = 20387
+        #   min_disp = 0.5
+        #   max_disp = inf
+        #   min_mean = 0.0125
+        #   max_mean = 3
+        #   span = 0.3
+        #   n_bins = 20
+        #   flavor = 'seurat_v3'
+        #   subset = False
+        #   inplace = False
+        #   batch_key = None
+        #   filter_unexpressed_genes = None
+        #   check_values = True
+        #   start = datetime.datetime(2026, 7, 26, 12, 36, 59, 871764, tzinfo=datetime.timezone.utc)
         if n_top_genes is None:
             sig = signature(_highly_variable_genes_seurat_v3)
             n_top_genes = cast("int", sig.parameters["n_top_genes"].default)
-            narrate("scanpy", "hvg: filled default n_top_genes", n_top_genes=n_top_genes)
+            # L7-LECTURE (not hit on Lesson 7B primary gene-block path)
+            # Alternate branch unused by test_lesson7b; no live 7B values here.
+            # --- lecture ---
+            # ``n_top_genes`` was left as ``None``, but Seurat-v3 flavors need
+            # a concrete cutoff for how many genes to mark highly variable.
+            # We read the default from the implementation function's signature
+            # (historically 2000) and continue with that value.
+            #
+            # Think of it as filling in the blank on the API form with the
+            # same default you would get by calling the private Seurat-v3
+            # helper directly without overriding ``n_top_genes``.
         result = _highly_variable_genes_seurat_v3(
             adata,
             flavor=flavor,
@@ -198,12 +306,40 @@ def highly_variable_genes(  # noqa: PLR0913
             subset=subset,
             inplace=inplace,
         )
-        narrate(
-            "scanpy",
-            "hvg: seurat_v3 returned",
-            result_type=type(result).__name__,
-            result_shape=getattr(result, "shape", None),
-        )
+        # L7-LECTURE (real Lesson 7B run)
+        # Step-by-step lecture note — inspected values from live execution.
+        # function=highly_variable_genes  where=scanpy  pid=2237068  hits_at_site=2
+        # topic: The Seurat-v3 implementation has returned to the public dispatcher.
+        # --- lecture ---
+        # The Seurat-v3 implementation has returned to the public dispatcher.
+        # If ``inplace`` was True, ``result`` is ``None`` and the annotations
+        # already live on ``adata.var``. If ``inplace`` was False, ``result``
+        # is a pandas DataFrame with one row per gene (or per HVG if subset)
+        # carrying means, variances, ranks, and the highly_variable flag.
+        #
+        # We return that object unchanged to the original caller — this wrapper
+        # does not post-process Seurat-v3 results further.
+        # --- facts at this step ---
+        #   result_type = 'DataFrame'
+        #   result_shape = (20387, 6)
+        # --- locals / object fields at the call site ---
+        #   adata = AnnData object with n_obs × n_vars = 68579 × 20387     obs: 'batch'     var: 'gene_ids', 'n_cells'     layers: 'counts'
+        #   layer = 'counts'
+        #   n_top_genes = 20387
+        #   min_disp = 0.5
+        #   max_disp = inf
+        #   min_mean = 0.0125
+        #   max_mean = 3
+        #   span = 0.3
+        #   n_bins = 20
+        #   flavor = 'seurat_v3'
+        #   subset = False
+        #   inplace = False
+        #   batch_key = None
+        #   filter_unexpressed_genes = None
+        #   check_values = True
+        #   start = datetime.datetime(2026, 7, 26, 12, 36, 59, 871764, tzinfo=datetime.timezone.utc)
+        #   result = {'type': 'DataFrame', 'shape': (20387, 6), 'columns': ['means', 'variances', 'gene_name', 'highly_variable_rank', 'variances_norm', 'highly_variable']}
         return result
 
     cutoff = _Cutoffs.validate(
