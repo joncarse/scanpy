@@ -71,19 +71,37 @@ def _meta_adata(store: Path) -> AnnData:
     # topic: obs and var are now ordinary pandas-like tables in memory.
     # --- lecture ---
     # obs and var are now ordinary pandas-like tables in memory. n_obs is how
-    # many cells; n_vars is how many genes. For the pbmc3k gene-block fixture,
-    # after the builder's filtering you should see on the order of ~2700 cells
-    # and ~16k genes (not the raw unfiltered ~32k gene universe). The AnnData
-    # we build next is a thin shell: metadata present, expression matrices
-    # still missing until we assign layers['counts'].
+    # many cells; n_vars is how many genes. For Lesson 7B (pbmc68k gene-block
+    # fixture) after the builder's filtering that is 68579 × 20387 — not the
+    # raw unfiltered 10x gene universe (~32738 genes).
+    #
+    # The DataFrame *shapes* alone hide the column meanings. Those columns
+    # were written by build_geneblock_fixtures._prepare:
+    #
+    #   obs shape (68579, 1) — one column, 'batch'
+    #     • dtype category with categories ['a', 'b']
+    #     • values alternate a, b, a, b, ... across cells
+    #       (np.tile(["a", "b"], n_obs) in the builder)
+    #     • value_counts ≈ a: 34290, b: 34289
+    #     • index = 10x cell barcodes (e.g. AAACATACACCCAA-1, ...)
+    #
+    #   var shape (20387, 2) — columns ['gene_ids', 'n_cells']
+    #     • gene_ids: Ensembl IDs from the 10x mtx (e.g. ENSG00000237683)
+    #     • n_cells: how many cells detected the gene (from filter_genes)
+    #     • index = gene symbols (e.g. AL627309.1, AP006222.2, ...)
+    #
+    # The AnnData we build next is a thin shell: this metadata present,
+    # expression matrices still missing until we assign layers['counts'].
     # --- facts at this step ---
     #   n_obs = 68579
     #   n_vars = 20387
+    #   obs.columns = ['batch']   # category a/b, alternating
+    #   var.columns = ['gene_ids', 'n_cells']
     # --- locals / object fields at the call site ---
     #   store = PosixPath('/home/jonathan/scverse/learn/hvg_csc_dask/data/pbmc68k_geneblocks.zarr')
     #   root = <Group file:///home/jonathan/scverse/learn/hvg_csc_dask/data/pbmc68k_geneblocks.zarr>
-    #   obs = {'type': 'DataFrame', 'shape': (68579, 1)}
-    #   var = {'type': 'DataFrame', 'shape': (20387, 2)}
+    #   obs = DataFrame shape (68579, 1), columns=['batch'], batch head=['a','b','a','b',...]
+    #   var = DataFrame shape (20387, 2), columns=['gene_ids', 'n_cells']
     return AnnData(obs=obs, var=var)
 
 
