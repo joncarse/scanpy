@@ -619,7 +619,12 @@ def test_cutoff_info():
 
 @pytest.mark.parametrize(
     "array_type",
-    [p for p in ARRAY_TYPES if "dask" in p.id and "1d_chunked" not in p.id],
+    [
+        p
+        for p in ARRAY_TYPES
+        # row-chunked CSR (1d_chunked, not csc) is supported; column-chunked CSC is not
+        if "dask" in p.id and ("1d_chunked" not in p.id or "csc" in p.id)
+    ],
 )
 @pytest.mark.parametrize("flavor", ["seurat_v3", "seurat_v3_paper"])
 def test_seurat_v3_bad_chunking(adata, array_type, flavor):
@@ -723,19 +728,35 @@ def test_subset_inplace_consistency(
         assert adatas[True].var_names.equals(dfs[True].index)
 
 
-@pytest.mark.parametrize(
-    "flavor",
-    [
-        "seurat",
-        "cell_ranger",
-        pytest.param("seurat_v3", marks=needs.skmisc),
-        pytest.param("seurat_v3_paper", marks=needs.skmisc),
-    ],
-)
+def _dask_consistency_params():
+    flavor_specs: list[tuple[str, tuple]] = [
+        ("seurat", ()),
+        ("cell_ranger", ()),
+        ("seurat_v3", (needs.skmisc,)),
+        ("seurat_v3_paper", (needs.skmisc,)),
+    ]
+    layouts = [
+        p
+        for p in ARRAY_TYPES
+        if "1d_chunked" in p.id and ("csr" in p.id or "csc" in p.id)
+    ]
+    for flavor_name, flavor_marks in flavor_specs:
+        for layout in layouts:
+            # seurat_v3* + column-chunked CSC is rejected; see test_seurat_v3_bad_chunking
+            if flavor_name in {"seurat_v3", "seurat_v3_paper"} and "csc" in layout.id:
+                continue
+            # ParameterSet[0] is the values tuple (ruff PD011 forbids .values)
+            (to_dask,) = layout[0]
+            yield pytest.param(
+                flavor_name,
+                to_dask,
+                marks=[*flavor_marks, *layout.marks],
+                id=f"{flavor_name}-{layout.id}",
+            )
+
+
+@pytest.mark.parametrize(("flavor", "to_dask"), list(_dask_consistency_params()))
 @pytest.mark.parametrize("batch_key", [None, "batch"], ids=["single", "batched"])
-@pytest.mark.parametrize(
-    "to_dask", [p for p in ARRAY_TYPES if "1d_chunked" in p.id and "csr" in p.id]
-)
 def test_dask_consistency(adata: AnnData, flavor, batch_key, to_dask):
     # current blob produces singularities in loess....maybe a bad sign of the data?
     if "seurat_v3" in flavor:
