@@ -188,7 +188,7 @@ array_support: dict[str, tuple[list[str], list[str]]] = {
     "pp.filter_genes": (["np", "sp", "da"], []),
     "pp.harmony_integrate": (["np"], []),
     "pp.hashsolo": (["np", "sp"], []),
-    "pp.highly_variable_genes": (["np", "sp", "da"], ["da[sp[csc]]"]),
+    "pp.highly_variable_genes": (["np", "sp", "da"], []),
     "pp.log1p": (["np", "sp", "da"], []),
     "pp.neighbors": (["np", "sp"], []),
     "pp.normalize_total": (["np", "sp[csr]", "da"], []),

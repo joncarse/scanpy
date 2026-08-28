@@ -13,7 +13,7 @@ from anndata import AnnData
 from fast_array_utils import stats
 
 from .. import logging as logg
-from .._compat import CSBase, CSRBase, DaskArray, warn
+from .._compat import CSBase, CSCBase, CSRBase, DaskArray, warn
 from .._settings import Default, Verbosity, settings
 from .._utils import (
     check_nonnegative_integers,
@@ -32,6 +32,16 @@ if TYPE_CHECKING:
     from numpy.typing import NDArray
 
     from .._settings.presets import HVGFlavor
+
+
+def _raise_if_unsupported_dask_chunking(data) -> None:
+    if not isinstance(data, DaskArray):
+        return
+    if data.chunksize[1] == data.shape[1]:
+        return
+    if isinstance(data._meta, CSCBase) and data.chunksize[0] == data.shape[0]:
+        return
+    raise_if_dask_feature_axis_chunked(data)
 
 
 @singledispatch
@@ -66,6 +76,11 @@ def clip_square_sum(
 
 @clip_square_sum.register(DaskArray)
 def _(data_batch: DaskArray, clip_val: np.ndarray) -> tuple[DaskArray, DaskArray]:
+    if data_batch.chunksize[1] != data_batch.shape[1]:
+        # Column-chunked: each block already has every observation for a gene
+        # subset, so concatenate along genes instead of summing across blocks.
+        return _clip_square_sum_feature_chunked(data_batch, clip_val)
+
     n_blocks = data_batch.blocks.size
 
     def sum_and_sum_squares_clipped_from_block(block):
@@ -79,6 +94,30 @@ def _(data_batch: DaskArray, clip_val: np.ndarray) -> tuple[DaskArray, DaskArray
         dtype=np.float64,
     ).sum(axis=0)
     return squared_batch_counts_sum, batch_counts_sum
+
+
+def _clip_square_sum_feature_chunked(
+    data_batch: DaskArray, clip_val: np.ndarray
+) -> tuple[DaskArray, DaskArray]:
+    if data_batch.numblocks[0] != 1:
+        msg = (
+            "clip_square_sum requires the observation axis to be unchunked "
+            "for feature-chunked dask arrays."
+        )
+        raise ValueError(msg)
+
+    def per_block(block, block_info: dict | None = None) -> np.ndarray:
+        assert block_info is not None
+        col_subset = slice(*block_info[0]["array-location"][1])
+        squared_sum, total = clip_square_sum(block, clip_val[col_subset])
+        return np.vstack([np.asarray(squared_sum), np.asarray(total)])
+
+    combined = data_batch.map_blocks(
+        per_block,
+        chunks=((2,), data_batch.chunks[1]),
+        meta=np.array([], dtype=np.float64),
+    )
+    return combined[0], combined[1]
 
 
 @clip_square_sum.register(CSBase)
@@ -157,7 +196,7 @@ def _highly_variable_genes_seurat_v3(  # noqa: PLR0912, PLR0915
         raise
     df = pd.DataFrame(index=adata.var_names)
     data = _get_arr(adata, layer=layer)
-    raise_if_dask_feature_axis_chunked(data)
+    _raise_if_unsupported_dask_chunking(data)
 
     if check_values and not check_nonnegative_integers(data):
         msg = f"`{flavor=!r}` expects raw count data, but non-integers were found."

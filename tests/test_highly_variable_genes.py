@@ -16,6 +16,7 @@ from pandas.testing import assert_frame_equal, assert_index_equal
 
 import scanpy as sc
 from scanpy._compat import CSRBase
+from scanpy.preprocessing._highly_variable_genes import clip_square_sum
 from testing.scanpy._helpers import _check_check_values_warnings
 from testing.scanpy._helpers.data import pbmc3k, pbmc68k_reduced
 from testing.scanpy._pytest.marks import needs
@@ -617,6 +618,80 @@ def test_cutoff_info():
         sc.pp.highly_variable_genes(adata, n_top_genes=10, max_mean=3.1)
 
 
+def _clip_square_sum_reference(
+    x: np.ndarray, clip_val: np.ndarray
+) -> tuple[np.ndarray, np.ndarray]:
+    clipped = np.minimum(x.astype(np.float64), clip_val[None, :])
+    return np.square(clipped).sum(axis=0), clipped.sum(axis=0)
+
+
+def _as_dense(x: np.ndarray) -> np.ndarray:
+    return x
+
+
+def _as_csr(x: np.ndarray):
+    return sps.csr_matrix(x)  # noqa: TID251
+
+
+def _as_csc(x: np.ndarray):
+    return sps.csc_matrix(x)  # noqa: TID251
+
+
+def _as_dask_csr_row_chunked(x: np.ndarray):
+    import dask.array as da
+
+    return da.from_array(sps.csr_matrix(x), chunks=(5, -1))  # noqa: TID251
+
+
+def _as_dask_csc_col_chunked(x: np.ndarray):
+    import dask.array as da
+
+    return da.from_array(sps.csc_matrix(x), chunks=(-1, 3))  # noqa: TID251
+
+
+@pytest.mark.parametrize(
+    "builder",
+    [
+        pytest.param(_as_dense, id="dense"),
+        pytest.param(_as_csr, id="csr"),
+        pytest.param(_as_csc, id="csc"),
+        pytest.param(
+            _as_dask_csr_row_chunked, id="dask_csr_row_chunked", marks=needs.dask
+        ),
+        pytest.param(
+            _as_dask_csc_col_chunked, id="dask_csc_col_chunked", marks=needs.dask
+        ),
+    ],
+)
+def test_clip_square_sum_matches_reference(builder):
+    rng = np.random.default_rng(0)
+    x = rng.poisson(2.0, size=(12, 8)).astype(np.float64)
+    clip_val = rng.uniform(1.0, 4.0, size=8)
+    exp_sq, exp_sum = _clip_square_sum_reference(x, clip_val)
+
+    got_sq, got_sum = clip_square_sum(builder(x), clip_val)
+    got_sq, got_sum = np.asarray(got_sq), np.asarray(got_sum)
+
+    np.testing.assert_allclose(got_sq, exp_sq, rtol=1e-6, atol=1e-6)
+    np.testing.assert_allclose(got_sum, exp_sum, rtol=1e-6, atol=1e-6)
+
+
+@needs.dask
+def test_clip_square_sum_rejects_feature_and_obs_chunked():
+    import dask.array as da
+
+    rng = np.random.default_rng(0)
+    x = rng.poisson(2.0, size=(12, 8)).astype(np.float64)
+    clip_val = rng.uniform(1.0, 4.0, size=8)
+    dual = da.from_array(sps.csc_matrix(x), chunks=(5, 3))  # noqa: TID251
+
+    with pytest.raises(
+        ValueError,
+        match=r"observation axis to be unchunked for feature-chunked",
+    ):
+        clip_square_sum(dual, clip_val)
+
+
 @pytest.mark.parametrize(
     "array_type",
     [p for p in ARRAY_TYPES if "dask" in p.id and "1d_chunked" not in p.id],
@@ -734,7 +809,12 @@ def test_subset_inplace_consistency(
 )
 @pytest.mark.parametrize("batch_key", [None, "batch"], ids=["single", "batched"])
 @pytest.mark.parametrize(
-    "to_dask", [p for p in ARRAY_TYPES if "1d_chunked" in p.id and "csr" in p.id]
+    "to_dask",
+    [
+        p
+        for p in ARRAY_TYPES
+        if "1d_chunked" in p.id and ("csr" in p.id or "csc" in p.id)
+    ],
 )
 def test_dask_consistency(adata: AnnData, flavor, batch_key, to_dask):
     # current blob produces singularities in loess....maybe a bad sign of the data?
